@@ -39,6 +39,26 @@
     }
   });
 
+  (function initEasterEgg() {
+    const title = document.querySelector(".top h1");
+    if (!title) return;
+    const SECRET_PLAYLIST_URL =
+      "https://open.spotify.com/playlist/7BUPUXzdKqbImyIap3OfVo?si=SbCV-mNgRY69iid2ax06Ng";
+    let clickCount = 0;
+    let resetTimer = null;
+    title.addEventListener("click", () => {
+      clickCount += 1;
+      clearTimeout(resetTimer);
+      resetTimer = setTimeout(() => {
+        clickCount = 0;
+      }, 2000);
+      if (clickCount >= 5) {
+        clickCount = 0;
+        window.open(SECRET_PLAYLIST_URL, "_blank", "noopener");
+      }
+    });
+  })();
+
   $("#btn-join").addEventListener("click", async () => {
     const idInput = $("#room-id");
     const status = $("#join-status");
