@@ -20,6 +20,7 @@
   <div class="tabs">
     <button class="tab-btn active" data-tab="mine">내 시간표 입력</button>
     <button class="tab-btn" data-tab="overlap">우리 모두 비는 시간</button>
+    <button class="tab-btn" data-tab="board">브레인스토밍</button>
   </div>
 
   <!-- 내 시간표 입력 -->
@@ -81,6 +82,23 @@
     </div>
   </section>
 
+  <!-- 브레인스토밍 게시판 -->
+  <section class="tab-panel" id="tab-board">
+    <div class="card">
+      <h2>브레인스토밍</h2>
+      <p class="sub">짧은 아이디어나 의견을 익명으로 남겨보세요. (최대 100자)</p>
+      <div class="compose">
+        <textarea id="post-input" maxlength="100" rows="3" placeholder="아이디어를 100자 이내로 적어주세요..."></textarea>
+        <div class="compose-footer">
+          <span class="char-count" id="post-char-count">0/100</span>
+          <button class="primary" id="btn-post-submit">올리기</button>
+        </div>
+      </div>
+      <div id="post-status"></div>
+    </div>
+    <div id="post-list"></div>
+  </section>
+
   <footer class="note">
     이 페이지는 과목명·작성자 정보를 서버로 전송하지 않습니다. 시간대별 busy/free 값만 저장됩니다.
   </footer>
@@ -90,6 +108,7 @@
 <script src="js/api.js"></script>
 <script src="js/grid.js"></script>
 <script src="js/screenshot.js"></script>
+<script src="js/board.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script src="js/main.js"></script>
 </body>

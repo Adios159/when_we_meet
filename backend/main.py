@@ -79,6 +79,28 @@ def init_db():
             )
             """
         )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS posts (
+                id TEXT PRIMARY KEY,
+                room_id TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (room_id) REFERENCES rooms(id)
+            )
+            """
+        )
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS comments (
+                id TEXT PRIMARY KEY,
+                post_id TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                FOREIGN KEY (post_id) REFERENCES posts(id)
+            )
+            """
+        )
 
 
 init_db()
@@ -111,6 +133,27 @@ class OverlapResponse(BaseModel):
     all_free: List[bool]          # 칸별로 "전원이 비어있는지"
     slot_labels: List[str]        # "09:00", "09:30", ...
     day_labels: List[str]         # "월", "화", ...
+
+
+class CreatePostRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=100)
+
+
+class PostResponse(BaseModel):
+    id: str
+    content: str
+    created_at: str
+    comment_count: int
+
+
+class CreateCommentRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=100)
+
+
+class CommentResponse(BaseModel):
+    id: str
+    content: str
+    created_at: str
 
 
 def slot_labels() -> List[str]:
@@ -221,6 +264,107 @@ def get_overlap(room_id: str):
         slot_labels=slot_labels(),
         day_labels=DAY_LABELS,
     )
+
+
+@app.post("/api/rooms/{room_id}/posts", response_model=PostResponse)
+def create_post(room_id: str, req: CreatePostRequest):
+    with get_db() as conn:
+        room = conn.execute(
+            "SELECT id FROM rooms WHERE id = ?", (room_id,)
+        ).fetchone()
+        if not room:
+            raise HTTPException(status_code=404, detail="방을 찾을 수 없음")
+
+        post_id = uuid.uuid4().hex[:12]
+        conn.execute(
+            "INSERT INTO posts (id, room_id, content) VALUES (?, ?, ?)",
+            (post_id, room_id, req.content),
+        )
+        row = conn.execute(
+            "SELECT id, content, created_at FROM posts WHERE id = ?", (post_id,)
+        ).fetchone()
+    return PostResponse(
+        id=row["id"], content=row["content"], created_at=row["created_at"], comment_count=0
+    )
+
+
+@app.get("/api/rooms/{room_id}/posts", response_model=List[PostResponse])
+def list_posts(room_id: str):
+    with get_db() as conn:
+        room = conn.execute(
+            "SELECT id FROM rooms WHERE id = ?", (room_id,)
+        ).fetchone()
+        if not room:
+            raise HTTPException(status_code=404, detail="방을 찾을 수 없음")
+
+        rows = conn.execute(
+            """
+            SELECT p.id AS id, p.content AS content, p.created_at AS created_at,
+                   COUNT(c.id) AS comment_count
+            FROM posts p
+            LEFT JOIN comments c ON c.post_id = p.id
+            WHERE p.room_id = ?
+            GROUP BY p.id
+            ORDER BY p.created_at DESC
+            """,
+            (room_id,),
+        ).fetchall()
+    return [
+        PostResponse(
+            id=row["id"],
+            content=row["content"],
+            created_at=row["created_at"],
+            comment_count=row["comment_count"],
+        )
+        for row in rows
+    ]
+
+
+@app.post(
+    "/api/rooms/{room_id}/posts/{post_id}/comments", response_model=CommentResponse
+)
+def create_comment(room_id: str, post_id: str, req: CreateCommentRequest):
+    with get_db() as conn:
+        post = conn.execute(
+            "SELECT id FROM posts WHERE id = ? AND room_id = ?", (post_id, room_id)
+        ).fetchone()
+        if not post:
+            raise HTTPException(status_code=404, detail="글을 찾을 수 없음")
+
+        comment_id = uuid.uuid4().hex[:12]
+        conn.execute(
+            "INSERT INTO comments (id, post_id, content) VALUES (?, ?, ?)",
+            (comment_id, post_id, req.content),
+        )
+        row = conn.execute(
+            "SELECT id, content, created_at FROM comments WHERE id = ?",
+            (comment_id,),
+        ).fetchone()
+    return CommentResponse(
+        id=row["id"], content=row["content"], created_at=row["created_at"]
+    )
+
+
+@app.get(
+    "/api/rooms/{room_id}/posts/{post_id}/comments",
+    response_model=List[CommentResponse],
+)
+def list_comments(room_id: str, post_id: str):
+    with get_db() as conn:
+        post = conn.execute(
+            "SELECT id FROM posts WHERE id = ? AND room_id = ?", (post_id, room_id)
+        ).fetchone()
+        if not post:
+            raise HTTPException(status_code=404, detail="글을 찾을 수 없음")
+
+        rows = conn.execute(
+            "SELECT id, content, created_at FROM comments WHERE post_id = ? ORDER BY created_at ASC",
+            (post_id,),
+        ).fetchall()
+    return [
+        CommentResponse(id=row["id"], content=row["content"], created_at=row["created_at"])
+        for row in rows
+    ]
 
 
 @app.get("/api/health")

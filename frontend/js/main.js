@@ -14,6 +14,7 @@
 
   let grid = null;
   let aligner = null;
+  const board = window.Board.init({ roomId });
 
   // ---------- 탭 ----------
   document.querySelectorAll(".tab-btn").forEach((btn) => {
@@ -27,6 +28,7 @@
       btn.classList.add("active");
       document.getElementById(`tab-${btn.dataset.tab}`).classList.add("active");
       if (btn.dataset.tab === "overlap") loadOverlap();
+      if (btn.dataset.tab === "board") board.loadPosts();
     });
   });
 

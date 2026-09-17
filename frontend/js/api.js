@@ -49,5 +49,23 @@ window.Api = (function () {
     getOverlap(roomId) {
       return request(`/rooms/${roomId}/overlap`);
     },
+    createPost(roomId, content) {
+      return request(`/rooms/${roomId}/posts`, {
+        method: "POST",
+        body: JSON.stringify({ content }),
+      });
+    },
+    getPosts(roomId) {
+      return request(`/rooms/${roomId}/posts`);
+    },
+    createComment(roomId, postId, content) {
+      return request(`/rooms/${roomId}/posts/${postId}/comments`, {
+        method: "POST",
+        body: JSON.stringify({ content }),
+      });
+    },
+    getComments(roomId, postId) {
+      return request(`/rooms/${roomId}/posts/${postId}/comments`);
+    },
   };
 })();
