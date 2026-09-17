@@ -95,8 +95,9 @@ python3 -m http.server 5500
 
 ## 배포 시 체크리스트
 
-- [ ] `backend`를 Render/Railway 등에 배포 (SQLite 파일은 인스턴스 재시작 시
-      초기화될 수 있으니, 오래 쓰려면 PostgreSQL 등으로 교체 권장)
+- [ ] `backend`를 Render/Railway 등에 배포
+- [ ] 배포 환경에 PostgreSQL 인스턴스를 만들고 `DATABASE_URL` 환경변수로 연결
+      (설정 안 하면 서버가 시작 시 바로 에러를 냄)
 - [ ] `frontend/js/config.js`의 `API_BASE`를 배포 주소로 변경
 - [ ] `backend/main.py`의 CORS `allow_origins`를 실제 프론트 도메인으로 좁히기
 - [ ] `frontend`를 정적 호스팅(GitHub Pages, Vercel, Netlify)에 배포
