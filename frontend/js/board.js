@@ -3,8 +3,12 @@
 
 window.Board = (function () {
   function timeAgo(isoLike) {
-    // SQLite CURRENT_TIMESTAMP는 "YYYY-MM-DD HH:MM:SS" (UTC) 형식
-    const date = new Date(isoLike.replace(" ", "T") + "Z");
+    // Postgres now()::text는 "YYYY-MM-DD HH:MM:SS.ffffff+00" (UTC) 형식으로
+    // 이미 타임존 오프셋이 붙어있어서, 그걸 떼어내고 Z를 붙여야 파싱이 됨.
+    const iso = isoLike
+      .replace(" ", "T")
+      .replace(/([+-]\d{2})(:?\d{2})?$/, "");
+    const date = new Date(iso + "Z");
     const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
     if (diffSec < 60) return "방금 전";
     if (diffSec < 3600) return `${Math.floor(diffSec / 60)}분 전`;
