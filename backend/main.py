@@ -13,22 +13,24 @@ FreeTime Finder - backend
 
 실행:
     cd backend
-    pip install fastapi uvicorn --break-system-packages
+    pip install -r requirements.txt --break-system-packages
+    export DATABASE_URL=postgresql://user:password@localhost:5432/freetime
     uvicorn main:app --reload --port 8000
 """
 
 import json
-import sqlite3
+import os
 import uuid
 from contextlib import contextmanager
-from pathlib import Path
 from typing import List
 
+import psycopg
+from psycopg.rows import dict_row
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
-DB_PATH = Path(__file__).parent / "freetime.db"
+DATABASE_URL = os.environ["DATABASE_URL"]
 SLOT_COUNT = 18  # 09:00 ~ 18:00, 30분 단위 => (18-9)*2 = 18칸
 DAY_LABELS = ["월", "화", "수", "목", "금"]
 DAY_COUNT = len(DAY_LABELS)
@@ -48,8 +50,7 @@ app.add_middleware(
 
 @contextmanager
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
+    conn = psycopg.connect(DATABASE_URL, row_factory=dict_row)
     try:
         yield conn
         conn.commit()
@@ -64,7 +65,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS rooms (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP
+                created_at TEXT DEFAULT now()::text
             )
             """
         )
@@ -72,10 +73,9 @@ def init_db():
             """
             CREATE TABLE IF NOT EXISTS submissions (
                 id TEXT PRIMARY KEY,
-                room_id TEXT NOT NULL,
+                room_id TEXT NOT NULL REFERENCES rooms(id),
                 slots TEXT NOT NULL,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (room_id) REFERENCES rooms(id)
+                created_at TEXT DEFAULT now()::text
             )
             """
         )
@@ -83,10 +83,9 @@ def init_db():
             """
             CREATE TABLE IF NOT EXISTS posts (
                 id TEXT PRIMARY KEY,
-                room_id TEXT NOT NULL,
+                room_id TEXT NOT NULL REFERENCES rooms(id),
                 content TEXT NOT NULL,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (room_id) REFERENCES rooms(id)
+                created_at TEXT DEFAULT now()::text
             )
             """
         )
@@ -94,10 +93,9 @@ def init_db():
             """
             CREATE TABLE IF NOT EXISTS comments (
                 id TEXT PRIMARY KEY,
-                post_id TEXT NOT NULL,
+                post_id TEXT NOT NULL REFERENCES posts(id),
                 content TEXT NOT NULL,
-                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (post_id) REFERENCES posts(id)
+                created_at TEXT DEFAULT now()::text
             )
             """
         )
@@ -172,7 +170,7 @@ def create_room(req: CreateRoomRequest):
     room_id = uuid.uuid4().hex[:8]
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO rooms (id, name) VALUES (?, ?)", (room_id, req.name)
+            "INSERT INTO rooms (id, name) VALUES (%s, %s)", (room_id, req.name)
         )
     return RoomResponse(room_id=room_id, name=req.name)
 
@@ -181,7 +179,7 @@ def create_room(req: CreateRoomRequest):
 def get_room(room_id: str):
     with get_db() as conn:
         row = conn.execute(
-            "SELECT id, name FROM rooms WHERE id = ?", (room_id,)
+            "SELECT id, name FROM rooms WHERE id = %s", (room_id,)
         ).fetchone()
     if not row:
         raise HTTPException(status_code=404, detail="방을 찾을 수 없음")
@@ -192,7 +190,7 @@ def get_room(room_id: str):
 def submit_slots(room_id: str, req: SubmitSlotsRequest):
     with get_db() as conn:
         room = conn.execute(
-            "SELECT id FROM rooms WHERE id = ?", (room_id,)
+            "SELECT id FROM rooms WHERE id = %s", (room_id,)
         ).fetchone()
         if not room:
             raise HTTPException(status_code=404, detail="방을 찾을 수 없음")
@@ -201,19 +199,19 @@ def submit_slots(room_id: str, req: SubmitSlotsRequest):
 
         if req.submission_id:
             existing = conn.execute(
-                "SELECT id FROM submissions WHERE id = ? AND room_id = ?",
+                "SELECT id FROM submissions WHERE id = %s AND room_id = %s",
                 (req.submission_id, room_id),
             ).fetchone()
             if existing:
                 conn.execute(
-                    "UPDATE submissions SET slots = ? WHERE id = ?",
+                    "UPDATE submissions SET slots = %s WHERE id = %s",
                     (slots_json, req.submission_id),
                 )
                 return SubmitSlotsResponse(submission_id=req.submission_id)
 
         submission_id = uuid.uuid4().hex[:12]
         conn.execute(
-            "INSERT INTO submissions (id, room_id, slots) VALUES (?, ?, ?)",
+            "INSERT INTO submissions (id, room_id, slots) VALUES (%s, %s, %s)",
             (submission_id, room_id, slots_json),
         )
     return SubmitSlotsResponse(submission_id=submission_id)
@@ -223,7 +221,7 @@ def submit_slots(room_id: str, req: SubmitSlotsRequest):
 def delete_submission(room_id: str, submission_id: str):
     with get_db() as conn:
         conn.execute(
-            "DELETE FROM submissions WHERE id = ? AND room_id = ?",
+            "DELETE FROM submissions WHERE id = %s AND room_id = %s",
             (submission_id, room_id),
         )
     return {"ok": True}
@@ -233,13 +231,13 @@ def delete_submission(room_id: str, submission_id: str):
 def get_overlap(room_id: str):
     with get_db() as conn:
         room = conn.execute(
-            "SELECT name FROM rooms WHERE id = ?", (room_id,)
+            "SELECT name FROM rooms WHERE id = %s", (room_id,)
         ).fetchone()
         if not room:
             raise HTTPException(status_code=404, detail="방을 찾을 수 없음")
 
         rows = conn.execute(
-            "SELECT slots FROM submissions WHERE room_id = ?", (room_id,)
+            "SELECT slots FROM submissions WHERE room_id = %s", (room_id,)
         ).fetchall()
 
     free_counts = [0] * TOTAL_CELLS
@@ -270,18 +268,18 @@ def get_overlap(room_id: str):
 def create_post(room_id: str, req: CreatePostRequest):
     with get_db() as conn:
         room = conn.execute(
-            "SELECT id FROM rooms WHERE id = ?", (room_id,)
+            "SELECT id FROM rooms WHERE id = %s", (room_id,)
         ).fetchone()
         if not room:
             raise HTTPException(status_code=404, detail="방을 찾을 수 없음")
 
         post_id = uuid.uuid4().hex[:12]
         conn.execute(
-            "INSERT INTO posts (id, room_id, content) VALUES (?, ?, ?)",
+            "INSERT INTO posts (id, room_id, content) VALUES (%s, %s, %s)",
             (post_id, room_id, req.content),
         )
         row = conn.execute(
-            "SELECT id, content, created_at FROM posts WHERE id = ?", (post_id,)
+            "SELECT id, content, created_at FROM posts WHERE id = %s", (post_id,)
         ).fetchone()
     return PostResponse(
         id=row["id"], content=row["content"], created_at=row["created_at"], comment_count=0
@@ -292,7 +290,7 @@ def create_post(room_id: str, req: CreatePostRequest):
 def list_posts(room_id: str):
     with get_db() as conn:
         room = conn.execute(
-            "SELECT id FROM rooms WHERE id = ?", (room_id,)
+            "SELECT id FROM rooms WHERE id = %s", (room_id,)
         ).fetchone()
         if not room:
             raise HTTPException(status_code=404, detail="방을 찾을 수 없음")
@@ -303,7 +301,7 @@ def list_posts(room_id: str):
                    COUNT(c.id) AS comment_count
             FROM posts p
             LEFT JOIN comments c ON c.post_id = p.id
-            WHERE p.room_id = ?
+            WHERE p.room_id = %s
             GROUP BY p.id
             ORDER BY p.created_at DESC
             """,
@@ -326,18 +324,18 @@ def list_posts(room_id: str):
 def create_comment(room_id: str, post_id: str, req: CreateCommentRequest):
     with get_db() as conn:
         post = conn.execute(
-            "SELECT id FROM posts WHERE id = ? AND room_id = ?", (post_id, room_id)
+            "SELECT id FROM posts WHERE id = %s AND room_id = %s", (post_id, room_id)
         ).fetchone()
         if not post:
             raise HTTPException(status_code=404, detail="글을 찾을 수 없음")
 
         comment_id = uuid.uuid4().hex[:12]
         conn.execute(
-            "INSERT INTO comments (id, post_id, content) VALUES (?, ?, ?)",
+            "INSERT INTO comments (id, post_id, content) VALUES (%s, %s, %s)",
             (comment_id, post_id, req.content),
         )
         row = conn.execute(
-            "SELECT id, content, created_at FROM comments WHERE id = ?",
+            "SELECT id, content, created_at FROM comments WHERE id = %s",
             (comment_id,),
         ).fetchone()
     return CommentResponse(
@@ -352,13 +350,13 @@ def create_comment(room_id: str, post_id: str, req: CreateCommentRequest):
 def list_comments(room_id: str, post_id: str):
     with get_db() as conn:
         post = conn.execute(
-            "SELECT id FROM posts WHERE id = ? AND room_id = ?", (post_id, room_id)
+            "SELECT id FROM posts WHERE id = %s AND room_id = %s", (post_id, room_id)
         ).fetchone()
         if not post:
             raise HTTPException(status_code=404, detail="글을 찾을 수 없음")
 
         rows = conn.execute(
-            "SELECT id, content, created_at FROM comments WHERE post_id = ? ORDER BY created_at ASC",
+            "SELECT id, content, created_at FROM comments WHERE post_id = %s ORDER BY created_at ASC",
             (post_id,),
         ).fetchall()
     return [

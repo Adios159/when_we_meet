@@ -7,9 +7,10 @@
 
 ```
 freetime-finder/
-├── backend/           FastAPI + SQLite (공유 데이터 저장/계산)
+├── backend/           FastAPI + PostgreSQL (공유 데이터 저장/계산)
 │   ├── main.py
-│   └── requirements.txt
+│   ├── requirements.txt
+│   └── .env.example
 └── frontend/          바닐라 JS (그리드, 스크린샷 정렬, 결과 화면)
     ├── index.html     방 만들기 / 참여하기
     ├── room.html       내 시간표 입력 + 겹치는 시간 보기
@@ -36,13 +37,22 @@ freetime-finder/
 
 ### 1. 백엔드 실행
 
+DB로 PostgreSQL을 쓰기 때문에 로컬에 Postgres가 떠 있어야 합니다.
+
 ```bash
+# (최초 1회) 로컬에 Postgres가 없다면 설치 후 DB 생성
+sudo apt install postgresql   # 또는 brew install postgresql 등
+sudo -u postgres createdb freetime
+
 cd backend
 pip install -r requirements.txt --break-system-packages   # 필요 시
+cp .env.example .env   # DATABASE_URL을 본인 환경에 맞게 수정
+export $(cat .env | xargs)
 uvicorn main:app --reload --port 8000
 ```
 
 정상적으로 뜨면 `http://localhost:8000/api/health` 에서 `{"status":"ok"}` 확인 가능.
+(`DATABASE_URL`이 설정 안 되어 있으면 서버가 바로 에러를 내며 종료됩니다.)
 
 ### 2. 프론트엔드 실행
 
@@ -85,8 +95,9 @@ python3 -m http.server 5500
 
 ## 배포 시 체크리스트
 
-- [ ] `backend`를 Render/Railway 등에 배포 (SQLite 파일은 인스턴스 재시작 시
-      초기화될 수 있으니, 오래 쓰려면 PostgreSQL 등으로 교체 권장)
+- [ ] `backend`를 Render/Railway 등에 배포
+- [ ] 배포 환경에 PostgreSQL 인스턴스를 만들고 `DATABASE_URL` 환경변수로 연결
+      (설정 안 하면 서버가 시작 시 바로 에러를 냄)
 - [ ] `frontend/js/config.js`의 `API_BASE`를 배포 주소로 변경
 - [ ] `backend/main.py`의 CORS `allow_origins`를 실제 프론트 도메인으로 좁히기
 - [ ] `frontend`를 정적 호스팅(GitHub Pages, Vercel, Netlify)에 배포
