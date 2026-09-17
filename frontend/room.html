@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>우리 언제 만나요?</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1 id="room-title">🕐 불러오는 중...</h1>
+    <p class="sub">과목명과 이름은 저장되지 않아요. 월~금, 09:00~18:00 사이, 30분 단위로 바쁜 시간만 표시하세요.</p>
+    <div class="share-box" style="margin-top:12px;">
+      <code id="share-link"></code>
+      <button class="ghost" id="copy-link">링크 복사</button>
+    </div>
+  </header>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="mine">내 시간표 입력</button>
+    <button class="tab-btn" data-tab="overlap">우리 모두 비는 시간</button>
+  </div>
+
+  <!-- 내 시간표 입력 -->
+  <section class="tab-panel active" id="tab-mine">
+    <div class="card" id="step-upload">
+      <h2>1. 시간표 스크린샷 업로드</h2>
+      <p class="hint">
+        스크린샷을 올리고, 파란 점 두 개를 드래그해서 <b>월요일 09:00 왼쪽 위 ~ 금요일 18:00 오른쪽 아래(월~금 시간표 전체)</b>에 맞춰주세요.
+        그 다음 완전히 빈 시간대(수업 없는 칸)를 한 번 클릭해서 배경색을 알려주면 미리보기를 만들어줘요.
+      </p>
+      <input type="file" id="shot-input" accept="image/*" />
+      <div class="shot-wrap hidden" id="shot-wrap"></div>
+      <div class="row" style="margin-top: 12px;" id="shot-controls" hidden>
+        <button class="secondary" id="btn-sample-bg">빈 칸 배경색 지정</button>
+        <button class="primary" id="btn-detect">미리보기 만들기</button>
+        <label style="display:flex;align-items:center;gap:6px;margin:0;">
+          <input type="checkbox" id="use-ocr" style="width:auto;" />
+          <span style="font-size:0.82rem;color:var(--muted);">글자 인식(OCR)도 보조로 사용 (느림)</span>
+        </label>
+      </div>
+      <div id="shot-status"></div>
+      <div class="row" style="margin-top: 14px;">
+        <button class="ghost" id="btn-skip-shot">스크린샷 없이 직접 입력할게요</button>
+      </div>
+    </div>
+
+    <div class="card hidden" id="step-preview">
+      <h2>2. 미리보기 확인 / 수정</h2>
+      <p class="hint" id="preview-hint">칸을 클릭하면 바쁨(회색) ↔ 비어있음(기본)이 전환돼요. 실제 시간표와 다른 칸이 있으면 직접 고쳐주세요.</p>
+      <div id="grid-container"></div>
+      <div class="legend">
+        <span><span class="legend-swatch" style="background:var(--panel-2);border:1px solid var(--border);"></span>비어있음</span>
+        <span><span class="legend-swatch" style="background:var(--busy);"></span>바쁨(수업 있음)</span>
+      </div>
+      <div class="row" style="margin-top: 16px;">
+        <button class="ghost" id="btn-clear">전체 초기화</button>
+        <button class="secondary" id="btn-redo-shot">스크린샷 다시 분석하기</button>
+        <button class="primary" id="btn-submit">맞아요, 제출할게요</button>
+      </div>
+      <div id="submit-status"></div>
+    </div>
+  </section>
+
+  <!-- 겹치는 시간 -->
+  <section class="tab-panel" id="tab-overlap">
+    <div class="card">
+      <h2>모두가 비어있는 시간</h2>
+      <p class="sub" id="overlap-count-sub"></p>
+      <div id="overlap-list"></div>
+      <div class="heat-legend">
+        <span>적음</span>
+        <span class="heat-legend-scale"></span>
+        <span>전원 가능</span>
+      </div>
+      <div class="all-free-summary" id="all-free-summary"></div>
+      <div class="row" style="margin-top:14px;">
+        <button class="secondary" id="btn-refresh-overlap">새로고침</button>
+      </div>
+    </div>
+  </section>
+
+  <footer class="note">
+    이 페이지는 과목명·작성자 정보를 서버로 전송하지 않습니다. 시간대별 busy/free 값만 저장됩니다.
+  </footer>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/grid.js"></script>
+<script src="js/screenshot.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>

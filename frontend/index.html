@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>우리 언제 만나요?</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>🕐 우리 언제 만나요?</h1>
+    <p class="sub">여러 명의 시간표를 익명으로 모아서, 전원이 비는 시간만 찾아줘요.</p>
+  </header>
+
+  <div class="card">
+    <h2>새 방 만들기</h2>
+    <label for="room-name">방 이름 (예: 캡스톤 3조 회의)</label>
+    <input type="text" id="room-name" placeholder="조별과제 이름을 적어주세요" maxlength="60" />
+    <div class="row" style="margin-top: 12px;">
+      <button class="primary" id="btn-create">방 만들고 링크 공유하기</button>
+    </div>
+    <div id="create-status"></div>
+  </div>
+
+  <div class="card">
+    <h2>이미 만들어진 방 참여하기</h2>
+    <label for="room-id">방 코드 (링크에서 room= 뒤에 있는 코드)</label>
+    <input type="text" id="room-id" placeholder="예: a1b2c3d4" maxlength="12" />
+    <div class="row" style="margin-top: 12px;">
+      <button class="secondary" id="btn-join">참여하기</button>
+    </div>
+    <div id="join-status"></div>
+  </div>
+
+  <footer class="note">
+    과목명과 작성자는 서버에 저장되지 않아요. 오직 "이 시간에 바쁜지 아닌지"만 익명으로 모입니다.
+  </footer>
+</div>
+
+<script src="js/config.js"></script>
+<script src="js/api.js"></script>
+<script src="js/index.js"></script>
+</body>
+</html>
